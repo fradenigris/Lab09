@@ -1,7 +1,6 @@
 from database.regione_DAO import RegioneDAO
 from database.tour_DAO import TourDAO
 from database.attrazione_DAO import AttrazioneDAO
-import copy
 
 class Model:
     def __init__(self):
@@ -13,9 +12,6 @@ class Model:
         self._costo = 0
 
         # TODO: Aggiungere eventuali altri attributi
-
-        self._tour_setAttrazioni = {}
-        self._attrazione_setTour = {}
 
         # Caricamento
         self.load_tour()
@@ -46,30 +42,27 @@ class Model:
         # TODO
 
         id_tutti_tour = self.tour_map.keys()
-        self._tour_setAttrazioni = {item : set() for item in id_tutti_tour}
 
-        for id_tour in self._tour_setAttrazioni.keys():
+        for id_tour in id_tutti_tour:
             ciao = TourDAO.get_tour_attrazioni(id_tour)
             for el in ciao:
-                self._tour_setAttrazioni[id_tour].add(el['id_attrazione'])
+                id_attrazione = el['id_attrazione']
 
-        id_tutte_attrazioni = self.attrazioni_map.keys()
-        self._attrazione_setTour = {item : set() for item in id_tutte_attrazioni}
+                tour = self.tour_map.get(id_tour)
+                attrazione = self.attrazioni_map.get(id_attrazione)
 
-        for id_tour in self._tour_setAttrazioni.keys():
-            ciao = TourDAO.get_tour_attrazioni(id_tour)
-            for id_attrazione in self._attrazione_setTour.keys():
-                for el in ciao:
-                    if id_attrazione == el['id_attrazione']:
-                        self._attrazione_setTour[id_attrazione].add(el['id_tour'])
+                if tour and attrazione:
+                    tour.attrazioni.add(attrazione)
+
+                    if hasattr(attrazione, 'tour'):
+                        attrazione.tour.add(tour)
 
     def _calcola_valore_tour(self):
         for tour in self.tour_map.values():
             valore = 0
-            if tour.id in self._tour_setAttrazioni:
-                for id_attr in self._tour_setAttrazioni[tour.id]:
-                    if id_attr in self.attrazioni_map:
-                        valore += self.attrazioni_map[id_attr].valore_culturale
+            for attrazione in tour.attrazioni:
+                valore += attrazione.valore_culturale
+
             tour.valore = valore
 
     def genera_pacchetto(self, id_regione: str, max_giorni: int = None, max_budget: float = None):
@@ -119,12 +112,12 @@ class Model:
         if start_index == len(lista_tour):
             if valore_corrente > self._valore_ottimo:
                 self._valore_ottimo = valore_corrente
-                self._pacchetto_ottimo = copy.deepcopy(pacchetto_parziale)
+                self._pacchetto_ottimo = list(pacchetto_parziale)
                 self._costo = costo_corrente
             return
 
         tour_corrente = lista_tour[start_index]
-        attrazioni_tour_corrente = self._tour_setAttrazioni[tour_corrente.id]
+        attrazioni_tour_corrente = tour_corrente.attrazioni
 
         if max_budget is None:
             check_budget = True
